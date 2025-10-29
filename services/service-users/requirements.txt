@@ -1,0 +1,8 @@
+# services/service-users/requirements.txt
+fastapi
+uvicorn[standard]
+psycopg2-binary  # Драйвер для PostgreSQL
+sqlalchemy       # ORM для работы с БД
+passlib[bcrypt]
+python-jose[cryptography]
+pydantic[email]  # Для валидации email

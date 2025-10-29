@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # 1. СЕРВИС: База данных PostgreSQL
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: virel-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: virel
+      POSTGRES_PASSWORD: virel_password
+      POSTGRES_DB: virel_db
+    volumes:
+      # Эта строка сохраняет данные БД на вашем диске
+      - ./.data/postgres:/var/lib/postgresql/data
+    ports:
+      # Открываем порт 5432 для подключения к БД с вашего компьютера
+      - "5432:5432"
+
+  # 2. СЕРВИС: Бэкенд "service-users" (FastAPI)
+  service-users:
+    build:
+      # Где искать Dockerfile
+      context: ./services/service-users
+      dockerfile: Dockerfile
+    container_name: virel-service-users
+    restart: unless-stopped
+    ports:
+      # Пробрасываем порт 8001 (наш) на 8000 (в контейнере)
+      - "8001:8000"
+    volumes:
+      # Эта строка монтирует ваш код в контейнер для hot-reload
+      - ./services/service-users/app:/app/app
+    environment:
+      # Строка подключения к БД. 
+      # "postgres-db" - это имя сервиса из этого же файла!
+      DATABASE_URL: "postgresql://virel:virel_password@postgres-db:5432/virel_db"
+    depends_on:
+      # Не запускать этот сервис, пока не запустится postgres-db
+      - postgres-db
+
+  # 3. СЕРВИС: Фронтенд "client-web" (Next.js)
+  client-web:
+    build:
+      context: ./clients/client-web
+      dockerfile: Dockerfile.dev
+    container_name: virel-client-web
+    restart: unless-stopped
+    ports:
+      # Пробрасываем порт 3000 (наш) на 3000 (в контейнере)
+      - "3000:3000"
+    volumes:
+      # Монтируем код для hot-reload
+      - ./clients/client-web:/app
+      # Важный трюк: не монтируем node_modules, чтобы использовать те, 
+      # что внутри контейнера (быстрее и надежнее)
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - service-users
+
+networks:
+  default:
+    driver: bridge
